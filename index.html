@@ -19,13 +19,59 @@
             overflow: hidden;
         }
 
+        #modeSelection {
+            text-align: center;
+        }
+
+        #modeSelection h1 {
+            font-size: 36px;
+            margin-bottom: 40px;
+        }
+
+        .mode-btn {
+            padding: 15px 30px;
+            font-size: 24px;
+            margin: 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 250px;
+            height: 60px;
+            transition: all 0.2s ease;
+        }
+
+        .mode-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+
         #gameContainer {
             position: relative;
             width: 100%;
             max-width: 800px;
-            display: flex;
+            display: none;
             flex-direction: column;
             align-items: center;
+        }
+
+        #livesDisplay {
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            font-size: 24px;
+            z-index: 5;
+            display: none;
+        }
+
+        #bloodScoreDisplay {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 24px;
+            z-index: 5;
+            display: none;
         }
 
         #gameCanvas {
@@ -52,7 +98,7 @@
             z-index: 10;
         }
 
-        #startBtn {
+        #startBtn, #backBtn {
             margin: 10px 0;
             padding: 12px 30px;
             font-size: 20px;
@@ -64,9 +110,12 @@
             touch-action: manipulation;
             width: 200px;
             height: 50px;
+            transition: all 0.2s ease;
         }
 
-        #startBtn:active {
+        #startBtn:active, #backBtn:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
             background-color: #c0392b;
         }
 
@@ -88,6 +137,12 @@
             border-radius: 10px;
             color: white;
             touch-action: manipulation;
+            transition: all 0.15s ease;
+        }
+
+        .move-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
         }
 
         #leftBtn {
@@ -111,14 +166,29 @@
             font-size: 14px;
             text-align: center;
         }
+
+        .red-border {
+            border-top-color: red !important;
+        }
     </style>
 </head>
 <body>
+    <!-- 模式选择页面 -->
+    <div id="modeSelection">
+        <h1>选择游戏模式</h1>
+        <button class="mode-btn" id="scoreModeBtn">计分模式</button>
+        <button class="mode-btn" id="bloodModeBtn">血战到顶</button>
+    </div>
+
+    <!-- 游戏容器 -->
     <div id="gameContainer">
+        <div id="livesDisplay">生命: 3</div>
+        <div id="bloodScoreDisplay">分数: 0</div>
         <div id="score">0 : 0</div>
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <div id="startHint">点击开始按钮</div>
         <button id="startBtn">开始游戏</button>
+        <button id="backBtn">返回选择</button>
         
         <div class="control-buttons">
             <button class="move-btn" id="leftBtn">← 左移</button>
@@ -127,8 +197,7 @@
         
         <div id="instructions">
             你控制下侧球拍：按左右按钮移动<br>
-            电脑控制上侧球拍，先得3分获胜<br>
-            球会随着击中球拍次数越来越快
+            电脑控制上侧球拍
         </div>
     </div>
 
@@ -207,6 +276,17 @@
                 setTimeout(() => this.playTone(220, 0.5, 0.2), 200);
             }
             
+            // 减命音效
+            loseLife() {
+                this.playTone(220, 0.2, 0.2);
+            }
+            
+            // 10分音效
+            bigScore() {
+                this.playTone(880, 0.1, 0.2);
+                setTimeout(() => this.playTone(1100, 0.3, 0.3), 100);
+            }
+            
             // 开局音效 - 准备开始的提示音
             start() {
                 this.playTone(440, 0.15, 0.2);
@@ -223,15 +303,29 @@
         // 初始化音效系统
         const sounds = new SoundEffects();
 
+        // 获取DOM元素
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const startHint = document.getElementById('startHint');
         const startBtn = document.getElementById('startBtn');
+        const backBtn = document.getElementById('backBtn');
         const leftBtn = document.getElementById('leftBtn');
         const rightBtn = document.getElementById('rightBtn');
+        const scoreModeBtn = document.getElementById('scoreModeBtn');
+        const bloodModeBtn = document.getElementById('bloodModeBtn');
+        const modeSelection = document.getElementById('modeSelection');
+        const gameContainer = document.getElementById('gameContainer');
+        const livesDisplay = document.getElementById('livesDisplay');
+        const bloodScoreDisplay = document.getElementById('bloodScoreDisplay');
+        const scoreDisplay = document.getElementById('score');
+        const instructions = document.getElementById('instructions');
 
+        // 游戏状态变量
+        let gameMode = 'score'; // 'score' 或 'blood'
         let isReady = false;
-        let isGameOver = false; // 新增：游戏是否已结束的标志
+        let isGameOver = false;
+        let showRedBorder = false;
+        let redBorderTimer = 0;
 
         // 玩家控制：下侧球拍（左右移动）
         const playerPaddle = {
@@ -264,9 +358,12 @@
             dy: 0
         };
 
+        // 游戏数据
         let playerScore = 0;    // 玩家得分
         let computerScore = 0;  // 电脑得分
-        const winningScore = 3;
+        let bloodScore = 0;     // 血战到顶模式分数
+        let lives = 3;          // 生命数
+        const winningScore = 11; // 计分模式获胜分数
 
         // 绘制球拍
         function drawPaddle(paddle) {
@@ -286,7 +383,12 @@
         }
 
         function drawScore() {
-            document.getElementById('score').textContent = `${playerScore} : ${computerScore}`;
+            if (gameMode === 'score') {
+                scoreDisplay.textContent = `${playerScore} : ${computerScore}`;
+            } else {
+                bloodScoreDisplay.textContent = `分数: ${bloodScore}`;
+                livesDisplay.textContent = `生命: ${lives}`;
+            }
         }
 
         // 增加球速
@@ -316,7 +418,7 @@
             // 电脑控制的上侧球拍（带失误）
             const idealTargetX = ball.x - computerPaddle.width / 2;
             let computerTargetX = idealTargetX;
-            const mistakeChance = 0.15; // 15%失误率
+            const mistakeChance = gameMode === 'blood' ? 0.1 : 0.15; // 血战模式电脑更难失误
             if (Math.random() < mistakeChance && isReady) {
                 const mistakeOffset = (Math.random() - 0.8) * 200; // 随机偏移
                 computerTargetX = idealTargetX + mistakeOffset;
@@ -339,33 +441,71 @@
             }
         }
 
-        // 球的逻辑（核心调整：得分方向颠倒）
+        // 球的逻辑
         function updateBall() {
             if (!isReady) return;
 
             ball.x += ball.dx;
             ball.y += ball.dy;
 
-            // 左右边界反弹（不变）
+            // 处理红色边框效果
+            if (showRedBorder) {
+                redBorderTimer--;
+                if (redBorderTimer <= 0) {
+                    showRedBorder = false;
+                    canvas.classList.remove('red-border');
+                }
+            }
+
+            // 左右边界反弹
             if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
                 ball.dx = -ball.dx;
                 sounds.hit(); // 边界反弹也播放击球音效
             }
 
-            // 得分逻辑（上下颠倒后调整）
-            if (ball.y - ball.radius < 0) {
-                // 球飞出顶部（电脑那边）→ 玩家得分
-                playerScore++;
-                sounds.score(); // 播放得分音效
-                resetRound();
-            } else if (ball.y + ball.radius > canvas.height) {
-                // 球飞出底部（玩家这边）→ 电脑得分
-                computerScore++;
-                sounds.score(); // 播放得分音效
-                resetRound();
+            // 根据游戏模式处理不同的上下边界逻辑
+            if (gameMode === 'score') {
+                // 计分模式得分逻辑
+                if (ball.y - ball.radius < 0) {
+                    // 球飞出顶部（电脑那边）→ 玩家得分
+                    playerScore++;
+                    sounds.score();
+                    resetRound();
+                } else if (ball.y + ball.radius > canvas.height) {
+                    // 球飞出底部（玩家这边）→ 电脑得分
+                    computerScore++;
+                    sounds.score();
+                    resetRound();
+                }
+            } else {
+                // 血战到顶模式逻辑
+                if (ball.y + ball.radius > canvas.height) {
+                    // 玩家没接到球，减一条命
+                    lives--;
+                    sounds.loseLife();
+                    if (lives <= 0) {
+                        // 游戏结束
+                        endGame(false);
+                    } else {
+                        // 重新发球
+                        resetBall();
+                        startHint.textContent = "点击开始按钮继续";
+                        isReady = false;
+                    }
+                } else if (ball.y - ball.radius < 0) {
+                    // 电脑没接到球，玩家加10分，球反弹
+                    bloodScore += 10;
+                    sounds.bigScore();
+                    ball.dy = -ball.dy; // 反弹
+                    
+                    // 上边框变红
+                    showRedBorder = true;
+                    redBorderTimer = 15; // 显示15帧
+                    canvas.classList.add('red-border');
+                }
             }
 
-            // 碰撞检测（调整上下球拍判定）
+            // 碰撞检测
             // 与电脑上侧球拍碰撞
             if (
                 ball.y - ball.radius <= computerPaddle.y + computerPaddle.height &&
@@ -374,8 +514,8 @@
                 ball.x - ball.radius <= computerPaddle.x + computerPaddle.width
             ) {
                 ball.dy = -ball.dy; // 反弹向下
-                increaseBallSpeed(); // 增加球速
-                sounds.hit(); // 播放击球音效
+                increaseBallSpeed();
+                sounds.hit();
             }
 
             // 与玩家下侧球拍碰撞
@@ -386,8 +526,13 @@
                 ball.x - ball.radius <= playerPaddle.x + playerPaddle.width
             ) {
                 ball.dy = -ball.dy; // 反弹向上
-                increaseBallSpeed(); // 增加球速
-                sounds.hit(); // 播放击球音效
+                increaseBallSpeed();
+                sounds.hit();
+                
+                // 血战模式下，玩家击中加1分
+                if (gameMode === 'blood') {
+                    bloodScore++;
+                }
             }
         }
 
@@ -396,46 +541,64 @@
             isReady = false;
             startHint.textContent = "点击开始按钮继续";
             startBtn.textContent = "下一局";
+            resetBall();
+            playerPaddle.x = 350;    // 玩家球拍回中
+            computerPaddle.x = 350;  // 电脑球拍回中
+            checkGameOver();
+        }
+
+        // 仅重置球
+        function resetBall() {
             ball.x = canvas.width / 2;
             ball.y = canvas.height / 2;
             // 重置球速为初始速度
             ball.speed = 3;
             ball.dx = 0;
             ball.dy = 0;
-            playerPaddle.x = 350;    // 玩家球拍回中
-            computerPaddle.x = 350;  // 电脑球拍回中
         }
 
-        // 检查游戏结束（修复无限弹窗问题）
+        // 检查游戏结束（计分模式）
         function checkGameOver() {
-            // 如果游戏已经结束，不再重复检测
             if (isGameOver) return;
             
             if (playerScore >= winningScore) {
-                isGameOver = true; // 标记游戏已结束
-                sounds.victory(); // 播放胜利音效
-                setTimeout(() => {
-                    alert('你赢了！厉害！');
-                    resetGame();
-                }, 800); // 等待音效播放完毕
+                endGame(true);
             } else if (computerScore >= winningScore) {
-                isGameOver = true; // 标记游戏已结束
-                sounds.defeat(); // 播放失败音效
-                setTimeout(() => {
-                    alert('电脑赢了，再来一局！');
-                    resetGame();
-                }, 800); // 等待音效播放完毕
+                endGame(false);
             }
         }
 
+        // 结束游戏
+        function endGame(isVictory) {
+            isGameOver = true;
+            isReady = false;
+            
+            if (isVictory) {
+                sounds.victory();
+                setTimeout(() => {
+                    alert(gameMode === 'score' ? '你赢了！厉害！' : '恭喜你完成挑战！');
+                    resetGame();
+                }, 800);
+            } else {
+                sounds.defeat();
+                setTimeout(() => {
+                    alert(gameMode === 'score' ? '电脑赢了，再来一局！' : '游戏结束，再接再厉！');
+                    resetGame();
+                }, 800);
+            }
+        }
+
+        // 重置游戏
         function resetGame() {
-            // 重置游戏状态
             isGameOver = false;
             playerScore = 0;
             computerScore = 0;
+            bloodScore = 0;
+            lives = 3;
             startBtn.textContent = "开始游戏";
-            resetRound();
+            resetBall();
             drawScore();
+            startHint.textContent = "点击开始按钮";
         }
 
         function draw() {
@@ -449,15 +612,13 @@
         function gameLoop() {
             updatePaddles();
             updateBall();
-            checkGameOver();
             draw();
             requestAnimationFrame(gameLoop);
         }
 
-        // 开始游戏按钮
-        startBtn.addEventListener('click', startGame);
+        // 开始游戏
         function startGame() {
-            if (!isReady) {
+            if (!isReady && !isGameOver) {
                 isReady = true;
                 startHint.textContent = "";
                 // 球初始方向：随机左右，优先向玩家方向（向下）
@@ -465,15 +626,54 @@
                 ball.dy = ball.speed * (Math.random() > 0.3 ? 1 : -1); // 70%概率先向玩家发球
                 
                 // 判断是开局还是下一局
-                if (playerScore === 0 && computerScore === 0) {
-                    sounds.start(); // 播放开局音效
+                if ((gameMode === 'score' && playerScore === 0 && computerScore === 0) || 
+                    (gameMode === 'blood' && bloodScore === 0 && lives === 3)) {
+                    sounds.start();
                 } else {
-                    sounds.nextRound(); // 播放下一局音效
+                    sounds.nextRound();
                 }
             }
         }
 
-        // 手机按钮控制（不变）
+        // 选择游戏模式
+        function selectMode(mode) {
+            gameMode = mode;
+            modeSelection.style.display = 'none';
+            gameContainer.style.display = 'flex';
+            
+            // 重置游戏状态
+            resetGame();
+            
+            // 根据模式显示不同元素和说明
+            if (mode === 'score') {
+                scoreDisplay.style.display = 'block';
+                livesDisplay.style.display = 'none';
+                bloodScoreDisplay.style.display = 'none';
+                instructions.innerHTML = "你控制下侧球拍：按左右按钮移动<br>电脑控制上侧球拍，先得11分获胜<br>球会随着击中球拍次数越来越快";
+            } else {
+                scoreDisplay.style.display = 'none';
+                livesDisplay.style.display = 'block';
+                bloodScoreDisplay.style.display = 'block';
+                instructions.innerHTML = "你控制下侧球拍：按左右按钮移动<br>电脑控制上侧球拍，你有3条生命<br>击中球得1分，电脑没接到得10分<br>球会随着击中球拍次数越来越快";
+            }
+        }
+
+        // 返回模式选择
+        function backToSelection() {
+            gameContainer.style.display = 'none';
+            modeSelection.style.display = 'block';
+            canvas.classList.remove('red-border');
+            showRedBorder = false;
+            resetGame();
+        }
+
+        // 事件监听
+        startBtn.addEventListener('click', startGame);
+        backBtn.addEventListener('click', backToSelection);
+        scoreModeBtn.addEventListener('click', () => selectMode('score'));
+        bloodModeBtn.addEventListener('click', () => selectMode('blood'));
+
+        // 手机按钮控制
         leftBtn.addEventListener('mousedown', () => {
             playerPaddle.dx = -playerPaddle.speed;
         });
@@ -505,19 +705,20 @@
         // 桌面端键盘控制
         document.addEventListener('keydown', keyDown);
         function keyDown(e) {
-            if (e.key === 'Enter' && !isReady) {
+            if (e.key === 'Enter' && !isReady && !isGameOver) {
                 startGame();
             }
-            if (e.key === 'a' || e.key === 'A') {
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
                 playerPaddle.dx = -playerPaddle.speed;
             }
-            if (e.key === 'd' || e.key === 'D') {
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
                 playerPaddle.dx = playerPaddle.speed;
             }
         }
         document.addEventListener('keyup', keyUp);
         function keyUp(e) {
-            if (e.key === 'a' || e.key === 'A' || e.key === 'd' || e.key === 'D') {
+            if ((e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') || 
+                (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight')) {
                 playerPaddle.dx = 0;
             }
         }

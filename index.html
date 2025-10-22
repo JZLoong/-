@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>单人乒乓游戏 v1.0</title>
+    <title>单人乒乓游戏 v1.1</title>
     <style>
         body {
             margin: 0;
@@ -65,56 +65,49 @@
             white-space: pre-line; /* 支持换行 */
         }
 
-        /* 计分模式计时器相关 - 右上角，与球桌留缝隙 */
+        /* 计分模式计时器相关 - 中央显示，字号调小 */
         #timerDisplay {
             position: absolute;
-            /* 位置在JS中设置，与球桌留少量缝隙 */
-            right: 20px;
-            font-size: 18px;
+            font-size: 14px;
             display: none;
+            text-align: center;
         }
 
         #bestTimeDisplay {
             position: absolute;
-            /* 位置在JS中设置，与球桌留少量缝隙 */
-            right: 20px;
-            font-size: 18px;
+            font-size: 14px;
             display: none;
+            text-align: center;
         }
 
-        /* 血战模式最高分 - 显示在分数下方 */
+        /* 血战模式相关 - 中央显示，字号调小 */
         #highScoreDisplay {
             position: absolute;
-            top: 50px;
-            right: 20px;
-            font-size: 24px;
+            font-size: 14px;
             display: none;
+            text-align: center;
         }
 
         /* 生命显示（桃心）- 带"生命"文字 */
         #livesDisplay {
             position: absolute;
-            top: 10px;
-            left: 20px;
-            font-size: 24px;
+            font-size: 14px;
             z-index: 5;
             display: none;
             color: #e74c3c;
+            text-align: center;
         }
 
         #bloodScoreDisplay {
             position: absolute;
-            top: 10px;
-            right: 20px;
-            font-size: 24px;
+            font-size: 14px;
             z-index: 5;
             display: none;
+            text-align: center;
         }
 
         #scorePopup {
             position: absolute;
-            top: 45px;
-            right: 20px;
             font-size: 20px;
             color: red;
             z-index: 5;
@@ -253,9 +246,9 @@
     </div>
 
     <script>
-        // 1.0版本 - 清空之前的记录
-        localStorage.removeItem('pingPongBestTime');
-        localStorage.removeItem('pingPongHighScore');
+        // 1.1版本 - 清空历史版本的记录，从0开始
+        localStorage.removeItem('pingPongBestTime_v1.1');
+        localStorage.removeItem('pingPongHighScore_v1.1');
 
         // 音效系统
         class SoundEffects {
@@ -357,7 +350,12 @@
             const canvasRect = canvas.getBoundingClientRect();
             const gameContainerRect = gameContainer.getBoundingClientRect();
             const canvasTop = canvasRect.top - gameContainerRect.top;
+            const canvasCenterX = canvasRect.width / 2;
+            const canvasCenterY = canvasRect.height / 4; // 球桌上方中央位置
+            
             gameContainer.style.setProperty('--canvas-top', `${canvasTop}px`);
+            gameContainer.style.setProperty('--canvas-center-x', `${canvasCenterX}px`);
+            gameContainer.style.setProperty('--canvas-center-y', `${canvasCenterY}px`);
         }
 
         // 游戏状态变量
@@ -370,12 +368,17 @@
         // 计时模式相关变量
         let startTime = null;
         let timerInterval = null;
-        let bestTime = localStorage.getItem('pingPongBestTime') || null;
+        let bestTime = localStorage.getItem('pingPongBestTime_v1.1') || null;
         
-        // 血战模式斐波那契计分相关
-        let fibPrev = 0;
-        let fibCurrent = 1;
-        let highScore = localStorage.getItem('pingPongHighScore') ? parseInt(localStorage.getItem('pingPongHighScore')) : 0;
+        // 血战模式计分相关
+        let lastScoreMultiplier = 1; // 初始1分
+        let lastScoreTime = 0; // 上次加分时间
+        let lastMultiplierUpdateTime = 0; // 上次倍数调整时间
+        let highScore = localStorage.getItem('pingPongHighScore_v1.1') ? parseInt(localStorage.getItem('pingPongHighScore_v1.1')) : 0;
+
+        // 球速控制变量
+        let lastSpeedIncreaseTime = 0;
+        let speedIncreaseCount = 0;
 
         // 玩家球拍
         const playerPaddle = {
@@ -403,7 +406,6 @@
             y: canvas.height / 2,
             radius: 10,
             speed: 3,
-            maxSpeed: 8,
             acceleration: 0.2,
             dx: 0,
             dy: 0
@@ -418,7 +420,7 @@
 
         // 显示加分提示
         function showScorePopup(points) {
-            scorePopup.textContent = `+${points}`;
+            scorePopup.textContent = `+${points.toFixed(1)}`;
             scorePopup.style.display = 'block';
             setTimeout(() => {
                 scorePopup.style.display = 'none';
@@ -466,18 +468,29 @@
             if (gameMode === 'score') {
                 scoreDisplay.textContent = `${playerScore} : ${computerScore}`;
             } else {
-                bloodScoreDisplay.textContent = `分数: ${bloodScore}`;
+                bloodScoreDisplay.textContent = `分数: ${bloodScore.toFixed(1)}`;
                 updateLivesDisplay();
             }
         }
 
-        // 增加球速
+        // 增加球速 - 每0.5秒最多5次加速
         function increaseBallSpeed() {
-            const currentSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
-            if (currentSpeed < ball.maxSpeed) {
+            const now = Date.now();
+            const timeSinceLastIncrease = now - lastSpeedIncreaseTime;
+            
+            // 重置计数如果超过0.5秒
+            if (timeSinceLastIncrease > 500) {
+                speedIncreaseCount = 0;
+                lastSpeedIncreaseTime = now;
+            }
+            
+            // 如果没超过限制，增加速度
+            if (speedIncreaseCount < 5) {
+                const currentSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
                 const speedRatio = (currentSpeed + ball.acceleration) / currentSpeed;
                 ball.dx *= speedRatio;
                 ball.dy *= speedRatio;
+                speedIncreaseCount++;
             }
         }
 
@@ -546,7 +559,7 @@
                         clearInterval(timerInterval);
                         if (!bestTime || endTime < bestTime) {
                             bestTime = endTime;
-                            localStorage.setItem('pingPongBestTime', bestTime);
+                            localStorage.setItem('pingPongBestTime_v1.1', bestTime);
                             bestTimeDisplay.textContent = `最快获胜时间: ${formatTime(bestTime)}`;
                         }
                     }
@@ -563,8 +576,8 @@
                     if (lives <= 0) {
                         if (bloodScore > highScore) {
                             highScore = bloodScore;
-                            localStorage.setItem('pingPongHighScore', highScore);
-                            highScoreDisplay.textContent = `最高分: ${highScore}`;
+                            localStorage.setItem('pingPongHighScore_v1.1', highScore);
+                            highScoreDisplay.textContent = `最高分: ${highScore.toFixed(1)}`;
                         }
                         endGame(false);
                     } else {
@@ -573,13 +586,18 @@
                         isReady = false;
                     }
                 } else if (ball.y - ball.radius < 0) {
-                    bloodScore += 10;
-                    sounds.bigScore();
+                    // 电脑没接到得10分
+                    const now = Date.now();
+                    if (now - lastScoreTime > 500) { // 每0.5秒最多一次加分
+                        bloodScore += 10;
+                        lastScoreTime = now;
+                        sounds.bigScore();
+                        showScorePopup(10);
+                    }
                     ball.dy = -ball.dy;
                     showRedBorder = true;
                     redBorderTimer = 15;
                     canvas.classList.add('red-border');
-                    showScorePopup(10);
                 }
             }
 
@@ -606,11 +624,20 @@
                 sounds.hit();
                 
                 if (gameMode === 'blood') {
-                    bloodScore += fibCurrent;
-                    showScorePopup(fibCurrent);
-                    const nextFib = fibPrev + fibCurrent;
-                    fibPrev = fibCurrent;
-                    fibCurrent = nextFib;
+                    const now = Date.now();
+                    // 每0.5秒最多一次加分和一次倍数调整
+                    if (now - lastScoreTime > 500) {
+                        // 更新分数
+                        bloodScore += lastScoreMultiplier;
+                        showScorePopup(lastScoreMultiplier);
+                        lastScoreTime = now;
+                        
+                        // 每0.5秒最多一次倍数调整
+                        if (now - lastMultiplierUpdateTime > 500) {
+                            lastScoreMultiplier *= 1.2;
+                            lastMultiplierUpdateTime = now;
+                        }
+                    }
                 }
             }
         }
@@ -636,6 +663,10 @@
             ball.speed = 3;
             ball.dx = 0;
             ball.dy = 0;
+            
+            // 重置球速控制变量
+            lastSpeedIncreaseTime = 0;
+            speedIncreaseCount = 0;
         }
 
         // 检查游戏结束
@@ -666,7 +697,7 @@
             } else {
                 sounds.defeat();
                 setTimeout(() => {
-                    alert(gameMode === 'score' ? '电脑赢了，再来一局！' : `游戏结束，你的分数: ${bloodScore}`);
+                    alert(gameMode === 'score' ? '电脑赢了，再来一局！' : `游戏结束，你的分数: ${bloodScore.toFixed(1)}`);
                     resetGame();
                 }, 800);
             }
@@ -691,9 +722,10 @@
             clearInterval(timerInterval);
             timerDisplay.textContent = "当前时间: 00:00.0";
             
-            // 重置斐波那契数列
-            fibPrev = 0;
-            fibCurrent = 1;
+            // 重置血战模式计分变量
+            lastScoreMultiplier = 1;
+            lastScoreTime = 0;
+            lastMultiplierUpdateTime = 0;
         }
 
         function draw() {
@@ -751,19 +783,17 @@
                 bestTimeDisplay.style.display = 'block';
                 highScoreDisplay.style.display = 'none';
                 
-                // "先得11分获胜" - 以文字为底，与球桌留少量缝隙（约5px）
-                instructions.textContent = "先得11分获胜";
-                instructions.style.fontSize = "18px";
-                instructions.style.top = "calc(var(--canvas-top) - 25px)"; // 增加距离，不紧贴
-                instructions.style.left = "50%";
-                instructions.style.transform = "translateX(-50%)";
-                
-                // "最快获胜时间" - 与球桌留少量缝隙
-                timerDisplay.style.top = "calc(var(--canvas-top) - 50px)";
-                bestTimeDisplay.style.top = "calc(var(--canvas-top) - 25px)"; // 与球桌留约5px缝隙
-                
                 // 计分模式提示语位置
                 startHint.style.top = "55%";
+                
+                // 时间显示在球桌中央
+                timerDisplay.style.top = "calc(var(--canvas-center-y) - 15px)";
+                timerDisplay.style.left = "50%";
+                timerDisplay.style.transform = "translateX(-50%)";
+                
+                bestTimeDisplay.style.top = "calc(var(--canvas-center-y) + 15px)";
+                bestTimeDisplay.style.left = "50%";
+                bestTimeDisplay.style.transform = "translateX(-50%)";
                 
                 // 显示最佳时间
                 if (bestTime) {
@@ -780,18 +810,27 @@
                 bestTimeDisplay.style.display = 'none';
                 highScoreDisplay.style.display = 'block';
                 
-                // "电脑没接到得10分"前面换行，以这句为底，与球桌留少量缝隙
-                instructions.textContent = "每次击球分数都会比之前更高\n电脑没接到得10分";
-                instructions.style.fontSize = "18px";
-                instructions.style.top = "calc(var(--canvas-top) - 50px)"; // 以底线为基准，与球桌留缝隙
-                instructions.style.left = "50%";
-                instructions.style.transform = "translateX(-50%)";
+                // 移除说明文字
+                instructions.textContent = "";
                 
                 // 血战模式提示语位置
                 startHint.style.top = "45%";
                 
+                // 血战模式信息显示在球桌中央
+                livesDisplay.style.top = "calc(var(--canvas-center-y) - 30px)";
+                livesDisplay.style.left = "50%";
+                livesDisplay.style.transform = "translateX(-50%)";
+                
+                bloodScoreDisplay.style.top = "calc(var(--canvas-center-y))";
+                bloodScoreDisplay.style.left = "50%";
+                bloodScoreDisplay.style.transform = "translateX(-50%)";
+                
+                highScoreDisplay.style.top = "calc(var(--canvas-center-y) + 30px)";
+                highScoreDisplay.style.left = "50%";
+                highScoreDisplay.style.transform = "translateX(-50%)";
+                
                 // 显示最高分
-                highScoreDisplay.textContent = `最高分: ${highScore}`;
+                highScoreDisplay.textContent = `最高分: ${highScore.toFixed(1)}`;
             }
         }
 

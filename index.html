@@ -62,40 +62,39 @@
             position: absolute;
             text-align: center;
             font-size: 18px;
-            white-space: pre-line; /* 支持换行 */
+            white-space: pre-line;
         }
 
-        /* 计分模式计时器相关 - 中央显示，字号调小 */
+        /* 计分模式时间显示 - 球桌左侧中间 */
         #timerDisplay {
             position: absolute;
             font-size: 14px;
             display: none;
-            text-align: center;
+            left: 20px; /* 左侧固定距离 */
         }
 
         #bestTimeDisplay {
             position: absolute;
             font-size: 14px;
             display: none;
-            text-align: center;
+            left: 20px; /* 左侧固定距离 */
         }
 
-        /* 血战模式相关 - 中央显示，字号调小 */
+        /* 血战模式信息显示 - 球桌左侧中间 */
         #highScoreDisplay {
             position: absolute;
             font-size: 14px;
             display: none;
-            text-align: center;
+            left: 20px; /* 左侧固定距离 */
         }
 
-        /* 生命显示（桃心）- 带"生命"文字 */
         #livesDisplay {
             position: absolute;
             font-size: 14px;
             z-index: 5;
             display: none;
             color: #e74c3c;
-            text-align: center;
+            left: 20px; /* 左侧固定距离 */
         }
 
         #bloodScoreDisplay {
@@ -103,7 +102,7 @@
             font-size: 14px;
             z-index: 5;
             display: none;
-            text-align: center;
+            left: 20px; /* 左侧固定距离 */
         }
 
         #scorePopup {
@@ -224,10 +223,8 @@
         <div id="timerDisplay">当前时间: 00:00.0</div>
         <div id="bestTimeDisplay">最快获胜时间: 暂无胜绩</div>
         
-        <!-- 血战模式生命 -->
+        <!-- 血战模式生命、分数和最高分 -->
         <div id="livesDisplay">生命：♥♥♥</div>
-        
-        <!-- 血战模式分数和最高分 -->
         <div id="bloodScoreDisplay">分数: 0</div>
         <div id="highScoreDisplay">最高分: 0</div>
         
@@ -246,7 +243,7 @@
     </div>
 
     <script>
-        // 1.1版本 - 清空历史版本的记录，从0开始
+        // 1.1版本 - 清空历史记录
         localStorage.removeItem('pingPongBestTime_v1.1');
         localStorage.removeItem('pingPongHighScore_v1.1');
 
@@ -345,17 +342,15 @@
         const bestTimeDisplay = document.getElementById('bestTimeDisplay');
         const highScoreDisplay = document.getElementById('highScoreDisplay');
 
-        // 初始化球桌位置变量
+        // 计算球桌左侧中间位置（垂直居中区域）
         function setCanvasPositionVars() {
             const canvasRect = canvas.getBoundingClientRect();
             const gameContainerRect = gameContainer.getBoundingClientRect();
             const canvasTop = canvasRect.top - gameContainerRect.top;
-            const canvasCenterX = canvasRect.width / 2;
-            const canvasCenterY = canvasRect.height / 4; // 球桌上方中央位置
+            const canvasHeight = canvasRect.height;
+            const canvasMiddleY = canvasTop + canvasHeight / 2; // 球桌垂直中间点
             
-            gameContainer.style.setProperty('--canvas-top', `${canvasTop}px`);
-            gameContainer.style.setProperty('--canvas-center-x', `${canvasCenterX}px`);
-            gameContainer.style.setProperty('--canvas-center-y', `${canvasCenterY}px`);
+            gameContainer.style.setProperty('--canvas-middle-y', `${canvasMiddleY}px`);
         }
 
         // 游戏状态变量
@@ -478,13 +473,11 @@
             const now = Date.now();
             const timeSinceLastIncrease = now - lastSpeedIncreaseTime;
             
-            // 重置计数如果超过0.5秒
             if (timeSinceLastIncrease > 500) {
                 speedIncreaseCount = 0;
                 lastSpeedIncreaseTime = now;
             }
             
-            // 如果没超过限制，增加速度
             if (speedIncreaseCount < 5) {
                 const currentSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
                 const speedRatio = (currentSpeed + ball.acceleration) / currentSpeed;
@@ -586,9 +579,8 @@
                         isReady = false;
                     }
                 } else if (ball.y - ball.radius < 0) {
-                    // 电脑没接到得10分
                     const now = Date.now();
-                    if (now - lastScoreTime > 500) { // 每0.5秒最多一次加分
+                    if (now - lastScoreTime > 500) {
                         bloodScore += 10;
                         lastScoreTime = now;
                         sounds.bigScore();
@@ -625,14 +617,11 @@
                 
                 if (gameMode === 'blood') {
                     const now = Date.now();
-                    // 每0.5秒最多一次加分和一次倍数调整
                     if (now - lastScoreTime > 500) {
-                        // 更新分数
                         bloodScore += lastScoreMultiplier;
                         showScorePopup(lastScoreMultiplier);
                         lastScoreTime = now;
                         
-                        // 每0.5秒最多一次倍数调整
                         if (now - lastMultiplierUpdateTime > 500) {
                             lastScoreMultiplier *= 1.2;
                             lastMultiplierUpdateTime = now;
@@ -664,7 +653,6 @@
             ball.dx = 0;
             ball.dy = 0;
             
-            // 重置球速控制变量
             lastSpeedIncreaseTime = 0;
             speedIncreaseCount = 0;
         }
@@ -717,12 +705,10 @@
             canvas.classList.remove('red-border');
             showRedBorder = false;
             
-            // 重置计时器
             startTime = null;
             clearInterval(timerInterval);
             timerDisplay.textContent = "当前时间: 00:00.0";
             
-            // 重置血战模式计分变量
             lastScoreMultiplier = 1;
             lastScoreTime = 0;
             lastMultiplierUpdateTime = 0;
@@ -765,7 +751,7 @@
             }
         }
 
-        // 选择游戏模式
+        // 选择游戏模式 - 核心调整：信息显示位置移至球桌左侧中间
         function selectMode(mode) {
             gameMode = mode;
             modeSelection.style.display = 'none';
@@ -774,7 +760,7 @@
             setTimeout(setCanvasPositionVars, 0);
             
             if (mode === 'score') {
-                // 计分模式设置
+                // 计分模式：当前时间和最快时间移至球桌左侧中间
                 scoreDisplay.style.display = 'block';
                 livesDisplay.style.display = 'none';
                 bloodScoreDisplay.style.display = 'none';
@@ -782,54 +768,33 @@
                 timerDisplay.style.display = 'block';
                 bestTimeDisplay.style.display = 'block';
                 highScoreDisplay.style.display = 'none';
-                
-                // 计分模式提示语位置
+
+                // 左侧中间垂直排列（当前时间在上，最快时间在下）
+                timerDisplay.style.top = "calc(var(--canvas-middle-y) - 20px)";
+                bestTimeDisplay.style.top = "calc(var(--canvas-middle-y) + 5px)";
+
                 startHint.style.top = "55%";
                 
-                // 时间显示在球桌中央
-                timerDisplay.style.top = "calc(var(--canvas-center-y) - 15px)";
-                timerDisplay.style.left = "50%";
-                timerDisplay.style.transform = "translateX(-50%)";
-                
-                bestTimeDisplay.style.top = "calc(var(--canvas-center-y) + 15px)";
-                bestTimeDisplay.style.left = "50%";
-                bestTimeDisplay.style.transform = "translateX(-50%)";
-                
-                // 显示最佳时间
                 if (bestTime) {
                     bestTimeDisplay.textContent = `最快获胜时间: ${formatTime(parseInt(bestTime))}`;
                 } else {
                     bestTimeDisplay.textContent = "最快获胜时间: 暂无胜绩";
                 }
             } else {
-                // 血战模式设置
+                // 血战模式：生命、分数、最高分移至球桌左侧中间
                 scoreDisplay.style.display = 'none';
                 livesDisplay.style.display = 'block';
                 bloodScoreDisplay.style.display = 'block';
                 timerDisplay.style.display = 'none';
                 bestTimeDisplay.style.display = 'none';
                 highScoreDisplay.style.display = 'block';
-                
-                // 移除说明文字
-                instructions.textContent = "";
-                
-                // 血战模式提示语位置
+
+                // 左侧中间垂直排列（生命在上，分数在中，最高分在下）
+                livesDisplay.style.top = "calc(var(--canvas-middle-y) - 40px)";
+                bloodScoreDisplay.style.top = "calc(var(--canvas-middle-y) - 15px)";
+                highScoreDisplay.style.top = "calc(var(--canvas-middle-y) + 10px)";
+
                 startHint.style.top = "45%";
-                
-                // 血战模式信息显示在球桌中央
-                livesDisplay.style.top = "calc(var(--canvas-center-y) - 30px)";
-                livesDisplay.style.left = "50%";
-                livesDisplay.style.transform = "translateX(-50%)";
-                
-                bloodScoreDisplay.style.top = "calc(var(--canvas-center-y))";
-                bloodScoreDisplay.style.left = "50%";
-                bloodScoreDisplay.style.transform = "translateX(-50%)";
-                
-                highScoreDisplay.style.top = "calc(var(--canvas-center-y) + 30px)";
-                highScoreDisplay.style.left = "50%";
-                highScoreDisplay.style.transform = "translateX(-50%)";
-                
-                // 显示最高分
                 highScoreDisplay.textContent = `最高分: ${highScore.toFixed(1)}`;
             }
         }

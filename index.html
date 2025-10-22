@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>单人乒乓游戏 v1.1</title>
     <style>
+        /* 样式部分与之前保持一致 */
         body {
             margin: 0;
             padding: 0;
@@ -65,27 +66,25 @@
             white-space: pre-line;
         }
 
-        /* 计分模式时间显示 - 球桌左侧中间 */
         #timerDisplay {
             position: absolute;
             font-size: 14px;
             display: none;
-            left: 20px; /* 左侧固定距离 */
+            left: 20px;
         }
 
         #bestTimeDisplay {
             position: absolute;
             font-size: 14px;
             display: none;
-            left: 20px; /* 左侧固定距离 */
+            left: 20px;
         }
 
-        /* 血战模式信息显示 - 球桌左侧中间 */
         #highScoreDisplay {
             position: absolute;
             font-size: 14px;
             display: none;
-            left: 20px; /* 左侧固定距离 */
+            left: 20px;
         }
 
         #livesDisplay {
@@ -94,7 +93,7 @@
             z-index: 5;
             display: none;
             color: #e74c3c;
-            left: 20px; /* 左侧固定距离 */
+            left: 20px;
         }
 
         #bloodScoreDisplay {
@@ -102,7 +101,7 @@
             font-size: 14px;
             z-index: 5;
             display: none;
-            left: 20px; /* 左侧固定距离 */
+            left: 20px;
         }
 
         #scorePopup {
@@ -243,11 +242,11 @@
     </div>
 
     <script>
-        // 1.1版本 - 清空历史记录
-        localStorage.removeItem('pingPongBestTime_v1.1');
-        localStorage.removeItem('pingPongHighScore_v1.1');
+        // 关键调整：移除每次加载时清空记录的操作，保留localStorage中的数据
+        // localStorage.removeItem('pingPongBestTime_v1.1'); // 已移除
+        // localStorage.removeItem('pingPongHighScore_v1.1'); // 已移除
 
-        // 音效系统
+        // 音效系统（保持不变）
         class SoundEffects {
             constructor() {
                 this.audioContext = null;
@@ -321,7 +320,7 @@
 
         const sounds = new SoundEffects();
 
-        // DOM元素
+        // DOM元素（保持不变）
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const startHint = document.getElementById('startHint');
@@ -342,40 +341,40 @@
         const bestTimeDisplay = document.getElementById('bestTimeDisplay');
         const highScoreDisplay = document.getElementById('highScoreDisplay');
 
-        // 计算球桌左侧中间位置（垂直居中区域）
+        // 计算球桌左侧中间位置（保持不变）
         function setCanvasPositionVars() {
             const canvasRect = canvas.getBoundingClientRect();
             const gameContainerRect = gameContainer.getBoundingClientRect();
             const canvasTop = canvasRect.top - gameContainerRect.top;
             const canvasHeight = canvasRect.height;
-            const canvasMiddleY = canvasTop + canvasHeight / 2; // 球桌垂直中间点
+            const canvasMiddleY = canvasTop + canvasHeight / 2;
             
             gameContainer.style.setProperty('--canvas-middle-y', `${canvasMiddleY}px`);
         }
 
-        // 游戏状态变量
+        // 游戏状态变量（核心调整：从localStorage读取历史记录）
         let gameMode = 'score';
         let isReady = false;
         let isGameOver = false;
         let showRedBorder = false;
         let redBorderTimer = 0;
         
-        // 计时模式相关变量
+        // 计时模式：读取本地存储的最快时间（若有）
         let startTime = null;
         let timerInterval = null;
         let bestTime = localStorage.getItem('pingPongBestTime_v1.1') || null;
         
-        // 血战模式计分相关
-        let lastScoreMultiplier = 1; // 初始1分
-        let lastScoreTime = 0; // 上次加分时间
-        let lastMultiplierUpdateTime = 0; // 上次倍数调整时间
-        let highScore = localStorage.getItem('pingPongHighScore_v1.1') ? parseInt(localStorage.getItem('pingPongHighScore_v1.1')) : 0;
+        // 血战模式：读取本地存储的最高分（若有）
+        let lastScoreMultiplier = 1;
+        let lastScoreTime = 0;
+        let lastMultiplierUpdateTime = 0;
+        let highScore = localStorage.getItem('pingPongHighScore_v1.1') ? parseFloat(localStorage.getItem('pingPongHighScore_v1.1')) : 0;
 
-        // 球速控制变量
+        // 球速控制变量（保持不变）
         let lastSpeedIncreaseTime = 0;
         let speedIncreaseCount = 0;
 
-        // 玩家球拍
+        // 玩家/电脑球拍、球属性（保持不变）
         const playerPaddle = {
             x: 350,
             y: canvas.height - 35,
@@ -385,7 +384,6 @@
             dx: 0
         };
 
-        // 电脑球拍
         const computerPaddle = {
             x: 350,
             y: 20,
@@ -395,7 +393,6 @@
             dx: 0
         };
 
-        // 球
         const ball = {
             x: canvas.width / 2,
             y: canvas.height / 2,
@@ -406,14 +403,14 @@
             dy: 0
         };
 
-        // 游戏数据
+        // 游戏数据（保持不变）
         let playerScore = 0;
         let computerScore = 0;
         let bloodScore = 0;
         let lives = 3;
         const winningScore = 11;
 
-        // 显示加分提示
+        // 显示加分提示（保持不变）
         function showScorePopup(points) {
             scorePopup.textContent = `+${points.toFixed(1)}`;
             scorePopup.style.display = 'block';
@@ -422,12 +419,12 @@
             }, 800);
         }
 
-        // 更新生命显示
+        // 更新生命显示（保持不变）
         function updateLivesDisplay() {
             livesDisplay.textContent = `生命：${'♥'.repeat(lives)}`;
         }
 
-        // 格式化时间
+        // 格式化时间（保持不变）
         function formatTime(ms) {
             const minutes = Math.floor(ms / 60000);
             const seconds = Math.floor((ms % 60000) / 1000);
@@ -435,14 +432,14 @@
             return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds}`;
         }
 
-        // 更新计时器显示
+        // 更新计时器显示（保持不变）
         function updateTimer() {
             if (!startTime || !isReady) return;
             const currentTime = Date.now() - startTime;
             timerDisplay.textContent = `当前时间: ${formatTime(currentTime)}`;
         }
 
-        // 绘制函数
+        // 绘制函数（保持不变）
         function drawPaddle(paddle) {
             ctx.beginPath();
             ctx.rect(paddle.x, paddle.y, paddle.width, paddle.height);
@@ -468,7 +465,7 @@
             }
         }
 
-        // 增加球速 - 每0.5秒最多5次加速
+        // 增加球速（保持不变）
         function increaseBallSpeed() {
             const now = Date.now();
             const timeSinceLastIncrease = now - lastSpeedIncreaseTime;
@@ -487,7 +484,7 @@
             }
         }
 
-        // 更新球拍
+        // 更新球拍（保持不变）
         function updatePaddles() {
             playerPaddle.x += playerPaddle.dx;
             if (playerPaddle.x < 0) playerPaddle.x = 0;
@@ -518,7 +515,7 @@
             }
         }
 
-        // 更新球
+        // 更新球（保持不变）
         function updateBall() {
             if (!isReady) return;
             if (gameMode === 'score') {
@@ -550,6 +547,7 @@
                     if (playerScore >= winningScore) {
                         const endTime = Date.now() - startTime;
                         clearInterval(timerInterval);
+                        // 新记录时更新并保存
                         if (!bestTime || endTime < bestTime) {
                             bestTime = endTime;
                             localStorage.setItem('pingPongBestTime_v1.1', bestTime);
@@ -567,6 +565,7 @@
                     lives--;
                     sounds.loseLife();
                     if (lives <= 0) {
+                        // 新记录时更新并保存
                         if (bloodScore > highScore) {
                             highScore = bloodScore;
                             localStorage.setItem('pingPongHighScore_v1.1', highScore);
@@ -631,7 +630,7 @@
             }
         }
 
-        // 重置本局
+        // 重置本局、重置球、检查游戏结束、结束游戏、重置游戏（保持不变）
         function resetRound() {
             isReady = false;
             startHint.textContent = "点击开始按钮继续";
@@ -645,7 +644,6 @@
             checkGameOver();
         }
 
-        // 重置球
         function resetBall() {
             ball.x = canvas.width / 2;
             ball.y = canvas.height / 2;
@@ -657,7 +655,6 @@
             speedIncreaseCount = 0;
         }
 
-        // 检查游戏结束
         function checkGameOver() {
             if (isGameOver) return;
             
@@ -668,7 +665,6 @@
             }
         }
 
-        // 结束游戏
         function endGame(isVictory) {
             isGameOver = true;
             isReady = false;
@@ -691,7 +687,6 @@
             }
         }
 
-        // 重置游戏
         function resetGame() {
             isGameOver = false;
             isReady = false;
@@ -714,6 +709,7 @@
             lastMultiplierUpdateTime = 0;
         }
 
+        // 绘制和游戏循环（保持不变）
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawPaddle(playerPaddle);
@@ -729,7 +725,7 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // 开始游戏
+        // 开始游戏（保持不变）
         function startGame() {
             if (!isReady && !isGameOver) {
                 isReady = true;
@@ -751,7 +747,7 @@
             }
         }
 
-        // 选择游戏模式 - 核心调整：信息显示位置移至球桌左侧中间
+        // 选择游戏模式（保持不变，显示历史记录）
         function selectMode(mode) {
             gameMode = mode;
             modeSelection.style.display = 'none';
@@ -760,7 +756,6 @@
             setTimeout(setCanvasPositionVars, 0);
             
             if (mode === 'score') {
-                // 计分模式：当前时间和最快时间移至球桌左侧中间
                 scoreDisplay.style.display = 'block';
                 livesDisplay.style.display = 'none';
                 bloodScoreDisplay.style.display = 'none';
@@ -769,19 +764,18 @@
                 bestTimeDisplay.style.display = 'block';
                 highScoreDisplay.style.display = 'none';
 
-                // 左侧中间垂直排列（当前时间在上，最快时间在下）
                 timerDisplay.style.top = "calc(var(--canvas-middle-y) - 20px)";
                 bestTimeDisplay.style.top = "calc(var(--canvas-middle-y) + 5px)";
 
                 startHint.style.top = "55%";
                 
+                // 显示保存的最快时间
                 if (bestTime) {
                     bestTimeDisplay.textContent = `最快获胜时间: ${formatTime(parseInt(bestTime))}`;
                 } else {
                     bestTimeDisplay.textContent = "最快获胜时间: 暂无胜绩";
                 }
             } else {
-                // 血战模式：生命、分数、最高分移至球桌左侧中间
                 scoreDisplay.style.display = 'none';
                 livesDisplay.style.display = 'block';
                 bloodScoreDisplay.style.display = 'block';
@@ -789,17 +783,17 @@
                 bestTimeDisplay.style.display = 'none';
                 highScoreDisplay.style.display = 'block';
 
-                // 左侧中间垂直排列（生命在上，分数在中，最高分在下）
                 livesDisplay.style.top = "calc(var(--canvas-middle-y) - 40px)";
                 bloodScoreDisplay.style.top = "calc(var(--canvas-middle-y) - 15px)";
                 highScoreDisplay.style.top = "calc(var(--canvas-middle-y) + 10px)";
 
                 startHint.style.top = "45%";
+                // 显示保存的最高分
                 highScoreDisplay.textContent = `最高分: ${highScore.toFixed(1)}`;
             }
         }
 
-        // 返回模式选择
+        // 返回模式选择（保持不变）
         function backToSelection() {
             gameContainer.style.display = 'none';
             modeSelection.style.display = 'block';
@@ -808,16 +802,16 @@
             resetGame();
         }
 
-        // 窗口大小变化时重新计算位置
+        // 窗口大小变化监听（保持不变）
         window.addEventListener('resize', setCanvasPositionVars);
 
-        // 事件监听
+        // 事件监听（保持不变）
         startBtn.addEventListener('click', startGame);
         backBtn.addEventListener('click', backToSelection);
         scoreModeBtn.addEventListener('click', () => selectMode('score'));
         bloodModeBtn.addEventListener('click', () => selectMode('blood'));
 
-        // 按钮控制
+        // 按钮控制（保持不变）
         leftBtn.addEventListener('mousedown', () => {
             playerPaddle.dx = -playerPaddle.speed;
         });
@@ -846,7 +840,7 @@
             playerPaddle.dx = 0;
         });
 
-        // 键盘控制
+        // 键盘控制（保持不变）
         document.addEventListener('keydown', keyDown);
         function keyDown(e) {
             if (e.key === 'Enter' && !isReady && !isGameOver) {
@@ -867,7 +861,7 @@
             }
         }
 
-        // 激活音频
+        // 激活音频（保持不变）
         document.addEventListener('click', () => {
             sounds.ensureContext();
         }, { once: true });
